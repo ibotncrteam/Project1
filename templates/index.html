@@ -349,7 +349,7 @@ async function loadDashboard() {
     allRecords = d.records;
 
     document.getElementById('subtitle').textContent =
-      `ข้อมูลอุบัติเหตุ — อัปเดต ${new Date().toLocaleDateString('th-TH')}`;
+      `ข้อมูลอุบัติเหตุ — อัปเดต ${new Date().toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' })}`;
 
     // Build year buttons
     const years = [...new Set(allRecords.map(r => r.date ? r.date.split('-')[0] : null).filter(Boolean))].sort();
