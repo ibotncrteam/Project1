@@ -2,113 +2,246 @@
 {% block title %}รายการอุบัติเหตุ{% endblock %}
 
 {% block content %}
-<div class="d-flex align-items-center justify-content-between mb-3">
-  <h4 class="fw-bold mb-0"><i class="bi bi-list-ul me-2 text-primary"></i>รายการอุบัติเหตุทั้งหมด</h4>
-  <a href="{{ url_for('admin_new') }}" class="btn btn-primary">
-    <i class="bi bi-plus-circle me-1"></i> เพิ่มรายการใหม่
+<div class="flex items-center justify-between mb-5">
+  <h4 class="font-bold text-lg flex items-center gap-2 text-gray-800">
+    <i class="bi bi-list-ul text-blue-600"></i>รายการอุบัติเหตุทั้งหมด
+  </h4>
+  <a href="{{ url_for('admin_new') }}"
+     class="inline-flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition">
+    <i class="bi bi-plus-circle"></i> เพิ่มรายการใหม่
   </a>
 </div>
 
-<!-- Summary mini-cards -->
-<div class="row g-3 mb-4">
-  {% set totals = incidents | length %}
-  {% set majors = incidents | selectattr('classification','equalto','Major') | list | length %}
-  {% set minors = incidents | selectattr('classification','equalto','Minor') | list | length %}
-  {% set nons   = incidents | selectattr('classification','equalto','Non-accident') | list | length %}
-  <div class="col-6 col-md-3">
-    <div class="card border-0 shadow-sm text-center py-3">
-      <div class="fw-bold fs-4">{{ totals }}</div>
-      <div class="text-muted small">รวมทั้งหมด</div>
-    </div>
+{% set totals = incidents | length %}
+{% set majors = incidents | selectattr('classification','equalto','Major') | list | length %}
+{% set minors = incidents | selectattr('classification','equalto','Minor') | list | length %}
+{% set nons   = incidents | selectattr('classification','equalto','Non-accident') | list | length %}
+
+<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+  <div class="bg-white rounded-xl shadow-sm text-center py-4">
+    <div class="font-bold text-2xl text-gray-800">{{ totals }}</div>
+    <div class="text-gray-500 text-sm">รวมทั้งหมด</div>
   </div>
-  <div class="col-6 col-md-3">
-    <div class="card border-0 shadow-sm text-center py-3" style="background:#fff5f5">
-      <div class="fw-bold fs-4 text-danger">{{ majors }}</div>
-      <div class="text-muted small">Major</div>
-    </div>
+  <div class="rounded-xl shadow-sm text-center py-4" style="background:#fff5f5">
+    <div class="font-bold text-2xl text-red-700">{{ majors }}</div>
+    <div class="text-gray-500 text-sm">Major</div>
   </div>
-  <div class="col-6 col-md-3">
-    <div class="card border-0 shadow-sm text-center py-3" style="background:#fffde7">
-      <div class="fw-bold fs-4" style="color:#f57f17">{{ minors }}</div>
-      <div class="text-muted small">Minor</div>
-    </div>
+  <div class="rounded-xl shadow-sm text-center py-4" style="background:#fffde7">
+    <div class="font-bold text-2xl" style="color:#f57f17">{{ minors }}</div>
+    <div class="text-gray-500 text-sm">Minor</div>
   </div>
-  <div class="col-6 col-md-3">
-    <div class="card border-0 shadow-sm text-center py-3" style="background:#e8f5e9">
-      <div class="fw-bold fs-4 text-success">{{ nons }}</div>
-      <div class="text-muted small">Non-accident</div>
+  <div class="rounded-xl shadow-sm text-center py-4" style="background:#e8f5e9">
+    <div class="font-bold text-2xl text-green-700">{{ nons }}</div>
+    <div class="text-gray-500 text-sm">Non-accident</div>
+  </div>
+</div>
+
+<div class="bg-white rounded-xl shadow-sm overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr style="background:#e8eaf6">
+          <th class="px-3 py-2 text-left hidden md:table-cell">#</th>
+          <th class="py-2 text-left">วันที่</th>
+          <th class="py-2 text-left">ชื่อ - สกุล</th>
+          <th class="py-2 text-left hidden md:table-cell">แผนก</th>
+          <th class="py-2 text-left hidden lg:table-cell">ฝ่าย</th>
+          <th class="py-2 text-left hidden sm:table-cell">ประเภทอุบัติเหตุ</th>
+          <th class="py-2 text-center hidden lg:table-cell" title="เครื่องจักร/อุปกรณ์">1</th>
+          <th class="py-2 text-center hidden lg:table-cell" title="การประเมิน">2</th>
+          <th class="py-2 text-center hidden lg:table-cell" title="ความบาดเจ็บ">3</th>
+          <th class="py-2 text-center hidden lg:table-cell" title="ส่วนของร่างกาย">4</th>
+          <th class="py-2 text-center hidden lg:table-cell" title="การเกิดซ้ำ">5</th>
+          <th class="py-2 text-center hidden md:table-cell">รวม</th>
+          <th class="py-2 text-left">ประเภท</th>
+          <th class="py-2 text-center hidden md:table-cell">Major?</th>
+          <th class="py-2 text-left">จัดการ</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody" class="divide-y divide-gray-100">
+        {% for inc in incidents %}
+        <tr data-row class="{% if inc.classification == 'Major' %}bg-[#fff5f5]{% elif inc.classification == 'Minor' %}bg-[#fffde7]{% endif %} hover:brightness-95">
+          <td class="px-3 py-1.5 hidden md:table-cell text-gray-500">{{ loop.index }}</td>
+          <td class="py-1.5 whitespace-nowrap">{{ inc.date }}</td>
+          <td class="py-1.5">{{ inc.person_name }}</td>
+          <td class="py-1.5 hidden md:table-cell">{{ inc.department }}</td>
+          <td class="py-1.5 hidden lg:table-cell">{{ inc.division or '' }}</td>
+          <td class="py-1.5 hidden sm:table-cell">{{ inc.accident_type }}</td>
+          <td class="py-1.5 text-center hidden lg:table-cell">{{ inc.score1 }}</td>
+          <td class="py-1.5 text-center hidden lg:table-cell">{{ inc.score2 }}</td>
+          <td class="py-1.5 text-center hidden lg:table-cell">{{ inc.score3 }}</td>
+          <td class="py-1.5 text-center hidden lg:table-cell">{{ inc.score4 }}</td>
+          <td class="py-1.5 text-center hidden lg:table-cell">{{ inc.score5 }}</td>
+          <td class="py-1.5 text-center font-bold hidden md:table-cell">{{ inc.score_total }}</td>
+          <td class="py-1.5">
+            {% if inc.classification == 'Major' %}
+              <span class="badge-major text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap">Major</span>
+            {% elif inc.classification == 'Minor' %}
+              <span class="badge-minor text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap">Minor</span>
+            {% else %}
+              <span class="badge-non text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap">Non</span>
+            {% endif %}
+          </td>
+          <td class="py-1.5 text-center hidden md:table-cell">
+            {% if inc.is_major %}
+              <i class="bi bi-check-square-fill text-red-600"></i>
+            {% else %}
+              <i class="bi bi-square text-gray-400"></i>
+            {% endif %}
+          </td>
+          <td class="py-1.5 whitespace-nowrap">
+            <a href="{{ url_for('admin_edit', inc_id=inc.id) }}"
+               class="inline-flex items-center text-xs border border-blue-400 text-blue-600 hover:bg-blue-50 rounded px-2 py-0.5 mr-1 transition">
+              <i class="bi bi-pencil"></i>
+            </a>
+            <form action="{{ url_for('admin_delete', inc_id=inc.id) }}" method="POST" class="inline">
+              <button type="button"
+                      onclick="confirmDelete(this.closest('form'))"
+                      class="inline-flex items-center text-xs border border-red-400 text-red-600 hover:bg-red-50 rounded px-2 py-0.5 transition">
+                <i class="bi bi-trash"></i>
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="15" class="text-center py-6 text-gray-400">
+            ยังไม่มีข้อมูล — <a href="{{ url_for('admin_new') }}" class="text-blue-600 underline">เพิ่มรายการแรก</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination bar -->
+  <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-gray-100">
+    <div class="flex items-center gap-2 text-sm">
+      <span class="text-gray-500">แถวต่อหน้า</span>
+      <select id="pageSizeSelect"
+              class="border border-gray-300 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+        <option value="10">10</option>
+        <option value="25" selected>25</option>
+        <option value="50">50</option>
+        <option value="100">100</option>
+        <option value="9999">ทั้งหมด</option>
+      </select>
+      <span class="text-gray-400">|</span>
+      <span class="text-gray-500">แสดง <span id="showingInfo" class="font-semibold text-gray-700"></span> รายการ</span>
+    </div>
+    <div class="flex items-center gap-2">
+      <span class="text-sm text-gray-400" id="pageInfo"></span>
+      <div class="flex items-center gap-1" id="pageButtons"></div>
     </div>
   </div>
 </div>
 
-<div class="card border-0 shadow-sm">
-  <div class="card-body p-0">
-    <div class="table-responsive">
-      <table class="table table-hover mb-0" style="font-size:.88rem">
-        <thead style="background:#e8eaf6;">
-          <tr>
-            <th class="ps-3">#</th>
-            <th>วันที่</th>
-            <th>ชื่อ - สกุล</th>
-            <th>แผนก</th>
-            <th>ฝ่าย</th>
-            <th>ประเภทอุบัติเหตุ</th>
-            <th class="text-center" title="เครื่องจักร/อุปกรณ์">1</th>
-            <th class="text-center" title="การประเมิน">2</th>
-            <th class="text-center" title="ความบาดเจ็บ">3</th>
-            <th class="text-center" title="ส่วนของร่างกาย">4</th>
-            <th class="text-center" title="การเกิดซ้ำ">5</th>
-            <th class="text-center">รวม</th>
-            <th>ประเภท</th>
-            <th>Major?</th>
-            <th>จัดการ</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for inc in incidents %}
-          <tr class="{% if inc.classification == 'Major' %}table-row-major{% elif inc.classification == 'Minor' %}table-row-minor{% endif %}">
-            <td class="ps-3">{{ inc.id }}</td>
-            <td>{{ inc.date }}</td>
-            <td>{{ inc.person_name }}</td>
-            <td>{{ inc.department }}</td>
-            <td>{{ inc.division or '' }}</td>
-            <td>{{ inc.accident_type }}</td>
-            <td class="text-center">{{ inc.score1 }}</td>
-            <td class="text-center">{{ inc.score2 }}</td>
-            <td class="text-center">{{ inc.score3 }}</td>
-            <td class="text-center">{{ inc.score4 }}</td>
-            <td class="text-center">{{ inc.score5 }}</td>
-            <td class="text-center fw-bold">{{ inc.score_total }}</td>
-            <td>
-              {% if inc.classification == 'Major' %}
-                <span class="badge badge-major rounded-pill px-2">Major</span>
-              {% elif inc.classification == 'Minor' %}
-                <span class="badge badge-minor rounded-pill px-2">Minor</span>
-              {% else %}
-                <span class="badge badge-non rounded-pill px-2">Non-accident</span>
-              {% endif %}
-            </td>
-            <td class="text-center">
-              {% if inc.is_major %}<i class="bi bi-check-square-fill text-danger"></i>{% else %}<i class="bi bi-square text-muted"></i>{% endif %}
-            </td>
-            <td>
-              <a href="{{ url_for('admin_edit', inc_id=inc.id) }}" class="btn btn-sm btn-outline-primary py-0 me-1">
-                <i class="bi bi-pencil"></i>
-              </a>
-              <form action="{{ url_for('admin_delete', inc_id=inc.id) }}" method="POST" class="d-inline"
-                    onsubmit="return confirm('ยืนยันการลบรายการนี้?')">
-                <button type="submit" class="btn btn-sm btn-outline-danger py-0">
-                  <i class="bi bi-trash"></i>
-                </button>
-              </form>
-            </td>
-          </tr>
-          {% else %}
-          <tr><td colspan="15" class="text-center py-4 text-muted">ยังไม่มีข้อมูล — <a href="{{ url_for('admin_new') }}">เพิ่มรายการแรก</a></td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </div>
-</div>
+{% block scripts %}
+<script>
+(function () {
+  const rows = Array.from(document.querySelectorAll('#tableBody tr[data-row]'));
+  const total = rows.length;
+  if (total === 0) return;
+
+  let pageSize = 25;
+  let currentPage = 1;
+
+  const pageSizeSelect = document.getElementById('pageSizeSelect');
+  const showingInfo   = document.getElementById('showingInfo');
+  const pageInfo      = document.getElementById('pageInfo');
+  const pageButtons   = document.getElementById('pageButtons');
+
+  function totalPages() { return Math.ceil(total / pageSize); }
+
+  function render() {
+    const tp = totalPages();
+    currentPage = Math.min(currentPage, tp);
+
+    const start = (currentPage - 1) * pageSize;
+    const end   = Math.min(start + pageSize, total);
+
+    rows.forEach((r, i) => {
+      r.style.display = (i >= start && i < end) ? '' : 'none';
+    });
+
+    // showing info
+    showingInfo.textContent = pageSize >= 9999
+      ? total
+      : `${start + 1}–${end} / ${total}`;
+
+    // page info text
+    pageInfo.textContent = tp > 1 ? `หน้า ${currentPage} / ${tp}` : '';
+
+    // page buttons
+    pageButtons.innerHTML = '';
+    if (tp <= 1) return;
+
+    const btnClass = 'min-w-[32px] h-8 px-2 rounded text-sm border transition';
+    const activeClass = 'bg-blue-600 text-white border-blue-600 font-semibold';
+    const normalClass = 'border-gray-300 text-gray-600 hover:bg-gray-100';
+
+    function addBtn(label, page, disabled) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = label;
+      b.className = btnClass + ' ' + (page === currentPage ? activeClass : normalClass);
+      if (disabled) { b.disabled = true; b.classList.add('opacity-40'); }
+      b.addEventListener('click', () => { currentPage = page; render(); });
+      pageButtons.appendChild(b);
+    }
+
+    // Prev
+    const prev = document.createElement('button');
+    prev.type = 'button';
+    prev.innerHTML = '<i class="bi bi-chevron-left"></i>';
+    prev.className = btnClass + ' ' + normalClass;
+    if (currentPage === 1) { prev.disabled = true; prev.classList.add('opacity-40'); }
+    prev.addEventListener('click', () => { currentPage--; render(); });
+    pageButtons.appendChild(prev);
+
+    // Page number buttons (show window of 5)
+    let pStart = Math.max(1, currentPage - 2);
+    let pEnd   = Math.min(tp, pStart + 4);
+    pStart = Math.max(1, pEnd - 4);
+
+    if (pStart > 1) { addBtn('1', 1); if (pStart > 2) pageButtons.appendChild(Object.assign(document.createElement('span'), {textContent:'…', className:'px-1 text-gray-400 text-sm'})); }
+    for (let p = pStart; p <= pEnd; p++) addBtn(p, p);
+    if (pEnd < tp) { if (pEnd < tp - 1) pageButtons.appendChild(Object.assign(document.createElement('span'), {textContent:'…', className:'px-1 text-gray-400 text-sm'})); addBtn(tp, tp); }
+
+    // Next
+    const next = document.createElement('button');
+    next.type = 'button';
+    next.innerHTML = '<i class="bi bi-chevron-right"></i>';
+    next.className = btnClass + ' ' + normalClass;
+    if (currentPage === tp) { next.disabled = true; next.classList.add('opacity-40'); }
+    next.addEventListener('click', () => { currentPage++; render(); });
+    pageButtons.appendChild(next);
+  }
+
+  pageSizeSelect.addEventListener('change', () => {
+    pageSize = parseInt(pageSizeSelect.value);
+    currentPage = 1;
+    render();
+  });
+
+  render();
+})();
+
+function confirmDelete(form) {
+  Swal.fire({
+    title: 'ยืนยันการลบ?',
+    text: 'ข้อมูลจะถูกลบถาวร ไม่สามารถกู้คืนได้',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#dc2626',
+    cancelButtonColor: '#6b7280',
+    confirmButtonText: 'ใช่, ลบเลย',
+    cancelButtonText: 'ยกเลิก',
+    reverseButtons: true
+  }).then((result) => {
+    if (result.isConfirmed) form.submit();
+  });
+}
+</script>
+{% endblock %}
 {% endblock %}

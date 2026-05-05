@@ -2,89 +2,64 @@
 {% block title %}จัดการผู้ใช้งาน{% endblock %}
 
 {% block content %}
-<div class="d-flex align-items-center mb-4">
-  <h4 class="fw-bold mb-0"><i class="bi bi-people-fill me-2 text-primary"></i>จัดการผู้ใช้งาน (Admin)</h4>
+<div class="flex items-center mb-5">
+  <h4 class="font-bold text-lg flex items-center gap-2 text-gray-800">
+    <i class="bi bi-people-fill text-blue-600"></i>จัดการผู้ใช้งาน (Admin)
+  </h4>
 </div>
 
-<div class="row g-4">
+<div class="grid grid-cols-1 lg:grid-cols-5 gap-5">
 
-  <!-- Left: user list -->
-  <div class="col-lg-7">
-    <div class="card border-0 shadow-sm">
-      <div class="card-header bg-primary text-white fw-semibold">
-        <i class="bi bi-person-lines-fill me-2"></i>รายชื่อผู้ใช้งาน
+  <!-- User list -->
+  <div class="lg:col-span-3">
+    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+      <div class="bg-blue-600 text-white font-semibold px-4 py-3 text-sm">
+        <i class="bi bi-person-lines-fill mr-2"></i>รายชื่อผู้ใช้งาน
       </div>
-      <div class="card-body p-0">
-        <table class="table table-hover mb-0" style="font-size:.9rem">
-          <thead style="background:#e8eaf6">
-            <tr>
-              <th class="px-3">#</th>
-              <th>ชื่อผู้ใช้</th>
-              <th>สิทธิ์</th>
-              <th class="text-center">เปลี่ยนรหัสผ่าน</th>
-              <th class="text-center">ลบ</th>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr style="background:#e8eaf6">
+              <th class="px-3 py-2 text-left hidden md:table-cell">#</th>
+              <th class="py-2 text-left">ชื่อผู้ใช้</th>
+              <th class="py-2 text-left">สิทธิ์</th>
+              <th class="py-2 text-center">เปลี่ยนรหัสผ่าน</th>
+              <th class="py-2 text-center">ลบ</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody class="divide-y divide-gray-100">
             {% for u in users %}
-            <tr{% if u.id == current_user.id %} class="table-primary"{% endif %}>
-              <td class="px-3">{{ u.id }}</td>
-              <td class="fw-semibold">
-                <i class="bi bi-person-circle me-1 text-secondary"></i>{{ u.username }}
+            <tr class="{% if u.id == current_user.id %}bg-blue-50{% endif %}">
+              <td class="px-3 py-2 hidden md:table-cell text-gray-500">{{ u.id }}</td>
+              <td class="py-2 font-semibold">
+                <i class="bi bi-person-circle mr-1 text-gray-400"></i>{{ u.username }}
                 {% if u.id == current_user.id %}
-                  <span class="badge bg-secondary ms-1" style="font-size:.7rem">คุณ</span>
+                  <span class="ml-1 text-xs bg-gray-200 text-gray-600 rounded px-1.5 py-0.5">คุณ</span>
                 {% endif %}
               </td>
-              <td><span class="badge bg-primary">{{ u.role }}</span></td>
-
-              <!-- Change password modal trigger -->
-              <td class="text-center">
-                <button class="btn btn-sm btn-outline-warning"
-                        data-bs-toggle="modal"
-                        data-bs-target="#modalPwd{{ u.id }}">
-                  <i class="bi bi-key me-1"></i>เปลี่ยนรหัส
+              <td class="py-2">
+                <span class="bg-blue-600 text-white text-xs font-semibold px-2 py-0.5 rounded">{{ u.role }}</span>
+              </td>
+              <td class="py-2 text-center">
+                <button onclick="openPwdModal({{ u.id }})"
+                        class="inline-flex items-center gap-1 text-xs border border-yellow-400 text-yellow-700 hover:bg-yellow-50 rounded px-2 py-1 transition">
+                  <i class="bi bi-key"></i>เปลี่ยนรหัส
                 </button>
               </td>
-
-              <!-- Delete -->
-              <td class="text-center">
+              <td class="py-2 text-center">
                 {% if u.id != current_user.id %}
                 <form method="POST" action="{{ url_for('admin_user_delete', uid=u.id) }}"
                       onsubmit="return confirm('ลบผู้ใช้ {{ u.username }} ใช่หรือไม่?')">
-                  <button type="submit" class="btn btn-sm btn-outline-danger">
-                    <i class="bi bi-trash me-1"></i>ลบ
+                  <button type="submit"
+                          class="inline-flex items-center gap-1 text-xs border border-red-400 text-red-600 hover:bg-red-50 rounded px-2 py-1 transition">
+                    <i class="bi bi-trash"></i>ลบ
                   </button>
                 </form>
                 {% else %}
-                <span class="text-muted small">—</span>
+                <span class="text-gray-300 text-sm">—</span>
                 {% endif %}
               </td>
             </tr>
-
-            <!-- Change password modal -->
-            <div class="modal fade" id="modalPwd{{ u.id }}" tabindex="-1">
-              <div class="modal-dialog modal-sm">
-                <div class="modal-content">
-                  <form method="POST" action="{{ url_for('admin_user_change_password', uid=u.id) }}">
-                    <div class="modal-header">
-                      <h5 class="modal-title fw-bold">
-                        <i class="bi bi-key me-2"></i>เปลี่ยนรหัส — {{ u.username }}
-                      </h5>
-                      <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                      <label class="form-label fw-semibold">รหัสผ่านใหม่ <span class="text-danger">*</span></label>
-                      <input type="password" name="new_password" class="form-control" required
-                             minlength="6" placeholder="อย่างน้อย 6 ตัวอักษร"/>
-                    </div>
-                    <div class="modal-footer">
-                      <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">ยกเลิก</button>
-                      <button type="submit" class="btn btn-warning btn-sm fw-semibold">บันทึก</button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-            </div>
             {% endfor %}
           </tbody>
         </table>
@@ -92,37 +67,88 @@
     </div>
   </div>
 
-  <!-- Right: add new user -->
-  <div class="col-lg-5">
-    <div class="card border-0 shadow-sm">
-      <div class="card-header bg-success text-white fw-semibold">
-        <i class="bi bi-person-plus-fill me-2"></i>เพิ่มผู้ใช้ใหม่
+  <!-- Add new user -->
+  <div class="lg:col-span-2">
+    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+      <div class="bg-green-600 text-white font-semibold px-4 py-3 text-sm">
+        <i class="bi bi-person-plus-fill mr-2"></i>เพิ่มผู้ใช้ใหม่
       </div>
-      <div class="card-body">
+      <div class="p-5">
         <form method="POST" action="{{ url_for('admin_user_new') }}">
-          <div class="mb-3">
-            <label class="form-label fw-semibold">ชื่อผู้ใช้ <span class="text-danger">*</span></label>
-            <input type="text" name="username" class="form-control" required
-                   placeholder="username" autocomplete="off"/>
-          </div>
-          <div class="mb-3">
-            <label class="form-label fw-semibold">รหัสผ่าน <span class="text-danger">*</span></label>
-            <input type="password" name="password" class="form-control" required
-                   minlength="6" placeholder="อย่างน้อย 6 ตัวอักษร"/>
+          <div class="mb-4">
+            <label class="block text-sm font-semibold mb-1">ชื่อผู้ใช้ <span class="text-red-500">*</span></label>
+            <input type="text" name="username" required placeholder="username" autocomplete="off"
+                   class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"/>
           </div>
           <div class="mb-4">
-            <label class="form-label fw-semibold">สิทธิ์</label>
-            <select name="role" class="form-select">
+            <label class="block text-sm font-semibold mb-1">รหัสผ่าน <span class="text-red-500">*</span></label>
+            <input type="password" name="password" required minlength="6" placeholder="อย่างน้อย 6 ตัวอักษร"
+                   class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"/>
+          </div>
+          <div class="mb-5">
+            <label class="block text-sm font-semibold mb-1">สิทธิ์</label>
+            <select name="role"
+                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
               <option value="admin">admin</option>
             </select>
           </div>
-          <button type="submit" class="btn btn-success w-100 fw-semibold">
-            <i class="bi bi-person-plus me-1"></i>เพิ่มผู้ใช้
+          <button type="submit"
+                  class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-lg transition text-sm">
+            <i class="bi bi-person-plus mr-1"></i>เพิ่มผู้ใช้
           </button>
         </form>
       </div>
     </div>
   </div>
-
 </div>
+
+<!-- Change password modals (vanilla JS) -->
+{% for u in users %}
+<div id="pwdModal{{ u.id }}"
+     class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4"
+     onclick="if(event.target===this) closePwdModal({{ u.id }})">
+  <div class="bg-white rounded-xl shadow-xl w-full max-w-sm">
+    <form method="POST" action="{{ url_for('admin_user_change_password', uid=u.id) }}">
+      <div class="flex items-center justify-between px-5 py-4 border-b">
+        <h5 class="font-bold text-sm">
+          <i class="bi bi-key mr-2"></i>เปลี่ยนรหัส — {{ u.username }}
+        </h5>
+        <button type="button" onclick="closePwdModal({{ u.id }})"
+                class="text-gray-400 hover:text-gray-700 text-xl leading-none">&times;</button>
+      </div>
+      <div class="px-5 py-4">
+        <label class="block text-sm font-semibold mb-1">รหัสผ่านใหม่ <span class="text-red-500">*</span></label>
+        <input type="password" name="new_password" required minlength="6"
+               placeholder="อย่างน้อย 6 ตัวอักษร"
+               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"/>
+      </div>
+      <div class="flex justify-end gap-2 px-5 py-3 border-t bg-gray-50 rounded-b-xl">
+        <button type="button" onclick="closePwdModal({{ u.id }})"
+                class="text-sm border border-gray-300 text-gray-600 hover:bg-gray-100 rounded-lg px-4 py-1.5 transition">
+          ยกเลิก
+        </button>
+        <button type="submit"
+                class="text-sm bg-yellow-500 hover:bg-yellow-600 text-white font-semibold rounded-lg px-4 py-1.5 transition">
+          บันทึก
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endfor %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openPwdModal(id) {
+  const m = document.getElementById('pwdModal' + id);
+  m.classList.remove('hidden');
+  m.classList.add('flex');
+}
+function closePwdModal(id) {
+  const m = document.getElementById('pwdModal' + id);
+  m.classList.add('hidden');
+  m.classList.remove('flex');
+}
+</script>
 {% endblock %}

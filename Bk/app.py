@@ -1,10 +1,7 @@
 import os
-import pyodbc
+import sqlite3
 import secrets
 from datetime import datetime
-from dotenv import load_dotenv
-
-load_dotenv()
 
 from flask import (Flask, jsonify, render_template, redirect, url_for,
                    request, flash, session, g, abort)
@@ -22,13 +19,8 @@ login_manager = LoginManager(app)
 login_manager.login_view = "admin_login"
 login_manager.login_message = "กรุณา login ก่อนเข้าใช้งาน"
 
-MSSQL_CONN = (
-    f"DRIVER={{{os.getenv('MSSQL_DRIVER', 'ODBC Driver 17 for SQL Server')}}};"
-    f"SERVER={os.getenv('MSSQL_SERVER')};"
-    f"DATABASE={os.getenv('MSSQL_DATABASE')};"
-    f"UID={os.getenv('MSSQL_UID')};"
-    f"PWD={os.getenv('MSSQL_PWD')};"
-)
+DB_PATH = os.path.join(os.path.dirname(__file__), "instance", "accidents.db")
+os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
 THAI_MONTHS = {
     1: "ม.ค.", 2: "ก.พ.", 3: "มี.ค.", 4: "เม.ย.",
@@ -59,59 +51,14 @@ ACCIDENT_TYPES_NOT_INJURED = [
 ]
 
 # ---------------------------------------------------------------------------
-# MSSQL wrapper — mimics sqlite3 Row / connection interface
-# ---------------------------------------------------------------------------
-
-class _Row(dict):
-    """Dict subclass that supports row["col"] access."""
-    pass
-
-
-class _CursorWrapper:
-    def __init__(self, cur):
-        self._cur = cur
-
-    def fetchall(self):
-        if self._cur.description is None:
-            return []
-        cols = [c[0] for c in self._cur.description]
-        return [_Row(zip(cols, row)) for row in self._cur.fetchall()]
-
-    def fetchone(self):
-        if self._cur.description is None:
-            return None
-        row = self._cur.fetchone()
-        if row is None:
-            return None
-        cols = [c[0] for c in self._cur.description]
-        return _Row(zip(cols, row))
-
-
-class _DBWrapper:
-    def __init__(self, conn):
-        self._conn = conn
-
-    def execute(self, sql, params=()):
-        cur = self._conn.cursor()
-        cur.execute(sql, params)
-        return _CursorWrapper(cur)
-
-    def commit(self):
-        self._conn.commit()
-
-    def close(self):
-        self._conn.close()
-
-
-# ---------------------------------------------------------------------------
 # Database helpers
 # ---------------------------------------------------------------------------
 
 def get_db():
     db = getattr(g, "_database", None)
     if db is None:
-        conn = pyodbc.connect(MSSQL_CONN, autocommit=False)
-        db = g._database = _DBWrapper(conn)
+        db = g._database = sqlite3.connect(DB_PATH)
+        db.row_factory = sqlite3.Row
     return db
 
 
@@ -124,61 +71,63 @@ def close_db(exc=None):
 
 def init_db():
     """Create tables and default admin user if not present."""
-    conn = pyodbc.connect(MSSQL_CONN, autocommit=True)
-    cur = conn.cursor()
-    cur.execute("""
-        IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'incidents')
-        CREATE TABLE incidents (
-            id                INT           IDENTITY(1,1) PRIMARY KEY,
-            date              NVARCHAR(20)  NOT NULL,
-            time              NVARCHAR(10),
-            department        NVARCHAR(200) NOT NULL,
-            division          NVARCHAR(200),
-            person_name       NVARCHAR(200) NOT NULL,
-            position          NVARCHAR(200),
-            has_injured       INT           NOT NULL DEFAULT 1,
-            accident_type     NVARCHAR(200) NOT NULL,
-            location          NVARCHAR(500),
-            body_part         NVARCHAR(200),
-            description       NVARCHAR(MAX) NOT NULL,
-            corrective_action NVARCHAR(MAX),
-            score1            INT           NOT NULL DEFAULT 1,
-            score2            INT           NOT NULL DEFAULT 1,
-            score3            INT           NOT NULL DEFAULT 1,
-            score4            INT           NOT NULL DEFAULT 1,
-            score5            INT           NOT NULL DEFAULT 1,
-            score_total       INT           NOT NULL DEFAULT 5,
-            is_major          INT           NOT NULL DEFAULT 0,
-            classification    NVARCHAR(50)  NOT NULL DEFAULT 'Non-accident',
-            created_by        NVARCHAR(200),
-            created_at        NVARCHAR(50)
-        )
+    # Ensure DB file is writable (guard against accidental read-only flag)
+    if os.path.exists(DB_PATH):
+        import stat
+        os.chmod(DB_PATH, os.stat(DB_PATH).st_mode | stat.S_IWRITE)
+    db = sqlite3.connect(DB_PATH)
+    db.row_factory = sqlite3.Row
+    db.executescript("""
+        CREATE TABLE IF NOT EXISTS incidents (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            date             TEXT    NOT NULL,
+            time             TEXT,
+            department       TEXT    NOT NULL,
+            division         TEXT,
+            person_name      TEXT    NOT NULL,
+            position         TEXT,
+            has_injured      INTEGER NOT NULL DEFAULT 1,
+            accident_type    TEXT    NOT NULL,
+            location         TEXT,
+            body_part        TEXT,
+            description      TEXT    NOT NULL,
+            corrective_action TEXT,
+            score1           INTEGER NOT NULL DEFAULT 1,
+            score2           INTEGER NOT NULL DEFAULT 1,
+            score3           INTEGER NOT NULL DEFAULT 1,
+            score4           INTEGER NOT NULL DEFAULT 1,
+            score5           INTEGER NOT NULL DEFAULT 1,
+            score_total      INTEGER NOT NULL DEFAULT 5,
+            is_major         INTEGER NOT NULL DEFAULT 0,
+            classification   TEXT    NOT NULL DEFAULT 'Non-accident',
+            created_by       TEXT,
+            created_at       TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS users (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            username      TEXT    NOT NULL UNIQUE,
+            password_hash TEXT    NOT NULL,
+            role          TEXT    NOT NULL DEFAULT 'admin'
+        );
     """)
-    cur.execute("""
-        IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'users')
-        CREATE TABLE users (
-            id            INT           IDENTITY(1,1) PRIMARY KEY,
-            username      NVARCHAR(200) NOT NULL UNIQUE,
-            password_hash NVARCHAR(500) NOT NULL,
-            role          NVARCHAR(50)  NOT NULL DEFAULT 'admin'
-        )
-    """)
-    cur.execute("""
-        IF NOT EXISTS (
-            SELECT * FROM sys.columns
-            WHERE object_id = OBJECT_ID('incidents') AND name = 'location'
-        )
-        ALTER TABLE incidents ADD location NVARCHAR(500)
-    """)
+    # Migrate: add location column if not present
+    try:
+        db.execute("ALTER TABLE incidents ADD COLUMN location TEXT")
+        db.commit()
+    except sqlite3.OperationalError:
+        pass  # column already exists
+
     # Create default admin if not exists
-    cur.execute("SELECT id FROM users WHERE username = 'admin'")
-    if not cur.fetchone():
+    existing = db.execute("SELECT id FROM users WHERE username = 'admin'").fetchone()
+    if not existing:
         pw_hash = generate_password_hash("admin1234")
-        cur.execute(
+        db.execute(
             "INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
             ("admin", pw_hash, "admin")
         )
-    conn.close()
+        db.commit()
+    db.close()
 
 
 def classify(score_total: int, is_major: bool) -> str:
@@ -202,10 +151,10 @@ class User(UserMixin):
 
 @login_manager.user_loader
 def load_user(user_id):
-    conn = pyodbc.connect(MSSQL_CONN, autocommit=False)
-    db = _DBWrapper(conn)
+    db = sqlite3.connect(DB_PATH)
+    db.row_factory = sqlite3.Row
     row = db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
-    conn.close()
+    db.close()
     if row:
         return User(row["id"], row["username"], row["role"])
     return None

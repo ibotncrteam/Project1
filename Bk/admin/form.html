@@ -1,0 +1,292 @@
+﻿{% extends "admin/base.html" %}
+{% block title %}{% if incident %}แก้ไขรายการ #{{ incident.id }}{% else %}เพิ่มรายการใหม่{% endif %}{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center mb-4">
+  <a href="{{ url_for('admin_index') }}" class="btn btn-sm btn-outline-secondary me-3">
+    <i class="bi bi-arrow-left"></i> กลับ
+  </a>
+  <h4 class="fw-bold mb-0">
+    {% if incident %}
+      <i class="bi bi-pencil-square me-2 text-primary"></i>แก้ไขรายการ #{{ incident.id }}
+    {% else %}
+      <i class="bi bi-plus-circle me-2 text-primary"></i>เพิ่มรายการใหม่
+    {% endif %}
+  </h4>
+</div>
+
+<form method="POST" id="incidentForm">
+  <div class="row g-4">
+
+    <!-- LEFT COLUMN -->
+    <div class="col-lg-8">
+
+      <!-- Section: ประเภทอุบัติเหตุ (มี/ไม่มีผู้บาดเจ็บ) -->
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header fw-semibold text-white" style="background:#37474f">
+          <i class="bi bi-person-exclamation me-2"></i>ประเภทกรณีอุบัติเหตุ
+        </div>
+        <div class="card-body">
+          <div class="d-flex gap-4">
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="radio" name="has_injured" id="hasInjuredYes"
+                     value="1" {% if not incident or incident.has_injured %}checked{% endif %}/>
+              <label class="form-check-label fw-semibold text-danger" for="hasInjuredYes">
+                <i class="bi bi-person-fill-exclamation me-1"></i>กรณีมีผู้ได้รับบาดเจ็บ
+              </label>
+            </div>
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="radio" name="has_injured" id="hasInjuredNo"
+                     value="0" {% if incident and not incident.has_injured %}checked{% endif %}/>
+              <label class="form-check-label fw-semibold text-success" for="hasInjuredNo">
+                <i class="bi bi-tools me-1"></i>กรณีไม่มีผู้ได้รับบาดเจ็บ
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section: ข้อมูลทั่วไป -->
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-primary text-white fw-semibold">
+          <i class="bi bi-info-circle me-2"></i>ข้อมูลทั่วไป
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">วันที่เกิดเหตุ <span class="text-danger">*</span></label>
+              <input type="date" name="date" class="form-control" required
+                     value="{{ incident.date if incident else '' }}"/>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">เวลาเกิดเหตุ</label>
+              <input type="time" name="time" class="form-control"
+                     value="{{ incident.time if incident else '' }}"/>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">ประเภทอุบัติเหตุ <span class="text-danger">*</span></label>
+              <select name="accident_type" id="accidentType" class="form-select" required>
+                <option value="">— เลือกประเภท —</option>
+              </select>
+            </div>
+            <div class="col-md-8">
+              <label class="form-label fw-semibold">จุดเกิดเหตุ</label>
+              <input type="text" name="location" class="form-control"
+                     placeholder="เช่น หน้าเครื่อง K-2, ห้องเก็บสาร..."
+                     value="{{ incident.location if incident else '' }}"/>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">ชื่อ - สกุล ผู้ประสบเหตุ <span class="text-danger">*</span></label>
+              <input type="text" name="person_name" class="form-control" required
+                     value="{{ incident.person_name if incident else '' }}"/>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label fw-semibold">แผนก <span class="text-danger">*</span></label>
+              <input type="text" name="department" class="form-control" required
+                     value="{{ incident.department if incident else '' }}"/>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label fw-semibold">ฝ่าย</label>
+              <input type="text" name="division" class="form-control"
+                     value="{{ incident.division if incident else '' }}"/>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">ตำแหน่งงาน</label>
+              <input type="text" name="position" class="form-control"
+                     value="{{ incident.position if incident else '' }}"/>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">ส่วนของร่างกายที่ได้รับบาดเจ็บ</label>
+              <input type="text" name="body_part" class="form-control"
+                     value="{{ incident.body_part if incident else '' }}"/>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold">ลักษณะการเกิดเหตุ <span class="text-danger">*</span></label>
+              <textarea name="description" class="form-control" rows="3" required>{{ incident.description if incident else '' }}</textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold">การแก้ไข / ป้องกัน</label>
+              <textarea name="corrective_action" class="form-control" rows="2">{{ incident.corrective_action if incident else '' }}</textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section: คะแนนประเมิน (label เปลี่ยนตามประเภท) -->
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-warning text-dark fw-semibold">
+          <i class="bi bi-calculator me-2"></i>คะแนนประเมินความเสี่ยง (1–9 ต่อด้าน)
+        </div>
+        <div class="card-body">
+
+          <div class="row g-3 align-items-end">
+            <!-- score inputs — labels ถูกเปลี่ยนโดย JS -->
+            {% for i in range(1, 6) %}
+            <div class="col-6 col-md">
+              <label class="form-label fw-semibold score-label" id="lbl{{ i }}" style="font-size:.85rem">
+                {{ i }}. &hellip; <span class="text-danger">*</span>
+              </label>
+              <input type="number" name="score{{ i }}" id="score{{ i }}"
+                     class="form-control score-input text-center fw-bold"
+                     min="1" max="9" required
+                     value="{{ incident['score'~i] if incident else 1 }}"/>
+            </div>
+            {% endfor %}
+
+            <div class="col-12 col-md-auto">
+              <label class="form-label fw-semibold" style="font-size:.85rem">รวม</label>
+              <div id="scoreTotal" class="form-control text-center fw-bold fs-5"
+                   style="min-width:70px;background:#f8f9fa;border:2px solid #dee2e6">–</div>
+            </div>
+          </div>
+
+          <hr class="my-3"/>
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" name="is_major" id="isMajor"
+                   role="switch" style="width:2.5em;height:1.4em"
+                   {% if incident and incident.is_major %}checked{% endif %}/>
+            <label class="form-check-label fw-semibold text-danger ms-2" for="isMajor">
+              <i class="bi bi-exclamation-triangle-fill me-1"></i>
+              เป็น <u>Major</u> incident (override — ไม่ว่าคะแนนจะเท่าไหร่)
+            </label>
+          </div>
+
+          <div class="mt-3 text-center">
+            <span style="font-size:.85rem;color:#666">ผลการจัดประเภท</span><br/>
+            <span id="classDisplay" class="badge fs-6 mt-1 px-4 py-2"
+                  style="border-radius:20px">–</span>
+          </div>
+
+        </div>
+      </div>
+
+    </div><!-- /LEFT -->
+
+    <!-- RIGHT COLUMN -->
+    <div class="col-lg-4">
+      <div class="card border-0 shadow-sm sticky-top" style="top:1rem">
+        <div class="card-header bg-success text-white fw-semibold">
+          <i class="bi bi-floppy me-2"></i>สรุปคะแนน
+        </div>
+        <div class="card-body">
+          <p class="text-muted small mb-2">
+            <strong>คะแนนรวม ≥ 18 = Minor</strong><br/>
+            <strong>ติ๊ก Major = Major ทันที</strong>
+          </p>
+          <table class="table table-sm table-bordered mb-3" style="font-size:.83rem">
+            <tr><td id="lbl1s">1. …</td><td class="text-center fw-bold" id="s1v">–</td></tr>
+            <tr><td id="lbl2s">2. …</td><td class="text-center fw-bold" id="s2v">–</td></tr>
+            <tr><td id="lbl3s">3. …</td><td class="text-center fw-bold" id="s3v">–</td></tr>
+            <tr><td id="lbl4s">4. …</td><td class="text-center fw-bold" id="s4v">–</td></tr>
+            <tr><td id="lbl5s">5. …</td><td class="text-center fw-bold" id="s5v">–</td></tr>
+            <tr style="background:#e8eaf6">
+              <td class="fw-bold">รวม</td>
+              <td class="text-center fw-bold" id="totalv">–</td>
+            </tr>
+          </table>
+          <span id="classDisplaySide" class="d-block text-center badge fs-5 mb-3 py-2"
+                style="border-radius:16px">–</span>
+        </div>
+        <div class="card-footer">
+          <button type="submit" class="btn btn-success w-100 fw-semibold py-2">
+            <i class="bi bi-floppy me-1"></i>
+            {% if incident %}บันทึกการแก้ไข{% else %}บันทึกรายการใหม่{% endif %}
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /row -->
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const LABELS = {
+  injured: [
+    '1. เครื่องจักรที่ประสบอุบัติเหตุ',
+    '2. การประเมินเบื้องต้นหลังเกิดอุบัติเหตุ',
+    '3. ความบาดเจ็บ',
+    '4. ส่วนของร่างกายที่ประสบอุบัติเหตุ',
+    '5. ลักษณะการเกิดซ้ำ',
+  ],
+  not_injured: [
+    '1. เครื่องจักร/อุปกรณ์ที่ประสบอุบัติเหตุ',
+    '2. การประเมินเบื้องต้นหลังเกิดอุบัติเหตุ',
+    '3. การประเมินความเสียหาย',
+    '4. ทรัพย์สินหรืออุปกรณ์ที่เกิดความเสียหาย',
+    '5. ลักษณะการเกิดซ้ำ',
+  ]
+};
+
+const ACC_TYPES = {
+  injured:     ['กระแทก', 'มีด / กรรไกร', 'เครื่องจักรหนีบ', 'เครื่องจักรดึง', 'ลื่น / ล้ม', 'สารเคมี', 'ตกจากที่สูง', 'อื่น ๆ'],
+  not_injured: ['ยานพาหนะ', 'เครื่องจักร', 'ความร้อน', 'ไฟฟ้า', 'สิ่งมีพิษ สารเคมี', 'วัตถุหรือสิ่งของกระแทก', 'ยกของหนัก', 'อื่น ๆ'],
+};
+
+const CURRENT_ACC_TYPE = '{{ incident.accident_type if incident else "" }}';
+
+function isInjured() {
+  return document.getElementById('hasInjuredYes').checked;
+}
+
+function updateAccidentTypes() {
+  const sel = document.getElementById('accidentType');
+  const types = isInjured() ? ACC_TYPES.injured : ACC_TYPES.not_injured;
+  sel.innerHTML = '<option value="">— เลือกประเภท —</option>';
+  types.forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = t;
+    opt.textContent = t;
+    if (t === CURRENT_ACC_TYPE) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+function updateLabels() {
+  const set = isInjured() ? LABELS.injured : LABELS.not_injured;
+  for (let i = 1; i <= 5; i++) {
+    const shortText = set[i-1] + ' <span class="text-danger">*</span>';
+    document.getElementById('lbl' + i).innerHTML = shortText;
+    document.getElementById('lbl' + i + 's').textContent = set[i-1];
+  }
+}
+
+function updateScore() {
+  let total = 0;
+  for (let i = 1; i <= 5; i++) {
+    const v = parseInt(document.getElementById('score' + i).value) || 0;
+    total += v;
+    document.getElementById('s' + i + 'v').textContent = v;
+  }
+  document.getElementById('scoreTotal').textContent = total;
+  document.getElementById('totalv').textContent = total;
+
+  const isMajor = document.getElementById('isMajor').checked;
+  let cls, bg;
+  if (isMajor)        { cls = 'Major';        bg = '#c62828'; }
+  else if (total >= 18) { cls = 'Minor';      bg = '#f57f17'; }
+  else                  { cls = 'Non-accident'; bg = '#2e7d32'; }
+
+  ['classDisplay','classDisplaySide'].forEach(id => {
+    const el = document.getElementById(id);
+    el.textContent = cls;
+    el.style.background = bg;
+    el.style.color = '#fff';
+  });
+  document.getElementById('scoreTotal').style.borderColor = bg;
+  document.getElementById('scoreTotal').style.color = bg;
+}
+
+document.getElementById('hasInjuredYes').addEventListener('change', () => { updateAccidentTypes(); updateLabels(); updateScore(); });
+document.getElementById('hasInjuredNo').addEventListener('change',  () => { updateAccidentTypes(); updateLabels(); updateScore(); });
+for (let i = 1; i <= 5; i++) {
+  document.getElementById('score' + i).addEventListener('input', updateScore);
+}
+document.getElementById('isMajor').addEventListener('change', updateScore);
+
+updateAccidentTypes();
+updateLabels();
+updateScore();
+</script>
+{% endblock %}
