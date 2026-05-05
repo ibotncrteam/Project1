@@ -1,0 +1,205 @@
+# PRD: Accident Management & Dashboard System (v2)
+
+## Overview
+Web application สำหรับบันทึกและติดตามอุบัติเหตุในองค์กร แบ่งออกเป็น 2 บทบาทหลัก:
+- **Admin** — กรอกข้อมูลอุบัติเหตุผ่านฟอร์มหน้าเว็บ พร้อมระบบ login
+- **User** — ดู Dashboard สรุปสถิติและรายการอุบัติเหตุ
+
+---
+
+## Tech Stack
+
+| Layer      | Technology                         |
+|------------|------------------------------------|
+| Backend    | Python 3.x + Flask                 |
+| Database   | SQLite3 (via Python `sqlite3`)     |
+| Auth       | Flask-Login + Werkzeug (password hash) |
+| Frontend   | HTML + Bootstrap 5 + Chart.js      |
+
+---
+
+## User Roles
+
+| Role  | สิทธิ์                                                      |
+|-------|-------------------------------------------------------------|
+| Admin | Login ได้, กรอก/แก้ไข/ลบข้อมูลอุบัติเหตุ, จัดการ user    |
+| User  | ดู Dashboard และตาราง (ไม่ต้อง login ก็ได้ หรือ login แยก) |
+
+> Admin login ที่ `/admin/login`, Dashboard user เปิดที่ `/` (public)
+
+---
+
+## Database Schema
+
+### Table: `incidents`
+
+| Column           | Type    | Description                                          |
+|------------------|---------|------------------------------------------------------|
+| id               | INTEGER | Primary key, autoincrement                           |
+| date             | TEXT    | วันที่เกิดเหตุ (YYYY-MM-DD)                          |
+| time             | TEXT    | เวลาเกิดเหตุ (HH:MM)                                 |
+| department       | TEXT    | แผนก                                                 |
+| location         | TEXT    | สถานที่เกิดเหตุ                                      |
+| person_name      | TEXT    | ชื่อผู้ประสบเหตุ                                    |
+| position         | TEXT    | ตำแหน่งงาน                                           |
+| accident_type    | TEXT    | ประเภทอุบัติเหตุ (dropdown)                          |
+| body_part        | TEXT    | ส่วนของร่างกายที่ได้รับบาดเจ็บ                       |
+| description      | TEXT    | ลักษณะการเกิดเหตุ                                   |
+| corrective_action| TEXT    | การแก้ไข/ป้องกัน                                    |
+| score_severity   | INTEGER | คะแนนความรุนแรง (S): 1–9                            |
+| score_likelihood | INTEGER | คะแนนความน่าจะเป็น (L): 1–9                         |
+| score_total      | INTEGER | คะแนนรวม = S + L (คำนวณอัตโนมัติ, เก็บใน DB)       |
+| is_major         | INTEGER | 1 = Major (admin ติ๊กเอง), 0 = ไม่ใช่ (default: 0) |
+| classification   | TEXT    | "Major" / "Minor" / "Non-accident" (computed)        |
+| created_by       | TEXT    | username admin ที่บันทึก                             |
+| created_at       | TEXT    | timestamp บันทึก                                    |
+
+### Table: `users`
+
+| Column        | Type    | Description                    |
+|---------------|---------|--------------------------------|
+| id            | INTEGER | Primary key                    |
+| username      | TEXT    | unique                         |
+| password_hash | TEXT    | hashed ด้วย werkzeug           |
+| role          | TEXT    | "admin" หรือ "user"            |
+
+---
+
+## Classification Logic
+
+```
+ถ้า is_major == 1  →  classification = "Major"
+ถ้า score_total >= 18  →  classification = "Minor"
+ถ้า score_total < 18   →  classification = "Non-accident"
+```
+
+> Major เป็น override — ไม่ว่าคะแนนจะเท่าไหร่ หาก admin ติ๊ก Major จะถูก classify เป็น Major ทันที
+
+**ค่าเกณฑ์คะแนน:**
+
+| ช่วงคะแนน  | ประเภท       |
+|------------|--------------|
+| 18         | Minor        |
+| < 18       | Non-accident |
+| ติ๊ก Major | Major        |
+
+---
+
+## Accident Type Dropdown (ประเภทอุบัติเหตุ)
+
+- ลื่น / สะดุด / ล้ม
+- ถูกวัตถุกระแทก / ทับ / บาด
+- ไฟฟ้าดูด
+- สารเคมี / ความร้อน
+- ยกของหนัก / ปวดเมื่อย
+- ยานพาหนะ
+- อื่นๆ (ระบุ)
+
+---
+
+## Pages & Routes
+
+| Route                | บทบาท | Description                                            |
+|----------------------|-------|--------------------------------------------------------|
+| `/`                  | User  | Dashboard (public)                                     |
+| `/admin/login`       | Admin | หน้า Login                                             |
+| `/admin/logout`      | Admin | Logout                                                 |
+| `/admin`             | Admin | รายการ incidents ทั้งหมด + ปุ่ม เพิ่ม/แก้ไข/ลบ       |
+| `/admin/incident/new`| Admin | ฟอร์มกรอกอุบัติเหตุใหม่                               |
+| `/admin/incident/<id>/edit` | Admin | แก้ไขรายการ                                   |
+| `/admin/incident/<id>/delete` | Admin | ลบรายการ (POST)                              |
+
+---
+
+## Admin Form Fields
+
+ฟอร์มกรอกข้อมูล (หน้า `/admin/incident/new` และ `/admin/incident/<id>/edit`):
+
+| Field                        | Input Type        | Required |
+|------------------------------|-------------------|----------|
+| วันที่เกิดเหตุ               | date picker       | ✓        |
+| เวลาเกิดเหตุ                 | time picker       |          |
+| แผนก                         | text / dropdown   | ✓        |
+| สถานที่เกิดเหตุ              | text              |          |
+| ชื่อผู้ประสบเหตุ             | text              | ✓        |
+| ตำแหน่งงาน                   | text              |          |
+| ประเภทอุบัติเหตุ             | dropdown          | ✓        |
+| ส่วนของร่างกาย               | text              |          |
+| ลักษณะการเกิดเหตุ            | textarea          | ✓        |
+| การแก้ไข/ป้องกัน             | textarea          |          |
+| คะแนนความรุนแรง (S) 1–9     | number input      | ✓        |
+| คะแนนความน่าจะเป็น (L) 1–9  | number input      | ✓        |
+| **คะแนนรวม**                 | read-only (auto)  | —        |
+| **เป็น Major?**              | checkbox          | —        |
+| **ประเภท (classification)**  | read-only (auto)  | —        |
+
+> คะแนนรวมและ classification จะแสดง real-time บนฟอร์ม (JavaScript) ก่อน submit
+
+---
+
+## API Endpoints (Flask)
+
+| Method | Endpoint            | Description                        |
+|--------|---------------------|------------------------------------|
+| GET    | `/`                 | Dashboard (HTML)                   |
+| GET    | `/api/dashboard`    | ข้อมูล JSON สำหรับ Dashboard       |
+| GET    | `/admin/login`      | หน้า Login (GET)                   |
+| POST   | `/admin/login`      | Submit Login                       |
+| GET    | `/admin/logout`     | Logout                             |
+| GET    | `/admin`            | หน้า Admin (ต้อง login)            |
+| GET    | `/admin/incident/new` | ฟอร์มใหม่                        |
+| POST   | `/admin/incident/new` | บันทึกข้อมูลใหม่                 |
+| GET    | `/admin/incident/<id>/edit` | ฟอร์มแก้ไข                |
+| POST   | `/admin/incident/<id>/edit` | บันทึกการแก้ไข             |
+| POST   | `/admin/incident/<id>/delete` | ลบรายการ                 |
+
+---
+
+## Dashboard Layout (User View — `/`)
+
+### 1. Summary Cards (แถวบนสุด)
+- **Total incidents** — จำนวนทั้งหมด
+- **Major** — จำนวน major incidents
+- **Minor** — จำนวน minor incidents
+- **Non-accident** — จำนวน non-accident
+
+### 2. Bar Chart — จำนวนอุบัติเหตุแยกตามเดือน
+- แกน X: เดือน (ม.ค.–ธ.ค.)
+- แกน Y: จำนวนครั้ง
+- Stacked หรือ Grouped ตาม classification (Major / Minor / Non-accident)
+
+### 3. Donut Chart — สัดส่วน Major / Minor / Non-accident
+
+### 4. Bar Chart — จำนวนแยกตามแผนก
+
+### 5. Incident Table — รายการทั้งหมด
+คอลัมน์: วันที่ | เวลา | แผนก | ผู้ประสบเหตุ | ประเภทอุบัติเหตุ | คะแนนรวม | Classification
+
+> สีแถว: Major = แดง, Minor = เหลือง, Non-accident = เขียว/ปกติ
+
+---
+
+## Admin Panel Layout (`/admin`)
+
+- ตารางรายการ incidents ทั้งหมด (เหมือน dashboard แต่มีปุ่ม Edit / Delete)
+- ปุ่ม "+ เพิ่มรายการใหม่" ด้านบน
+- แสดง classification badge สีตามประเภท
+
+---
+
+## Security
+
+- Password ใช้ `werkzeug.security` (pbkdf2:sha256) ห้าม plain text
+- Admin routes ทุก route ต้อง `@login_required`
+- ใช้ parameterized queries ทุกครั้ง (ป้องกัน SQL injection)
+- CSRF protection ผ่าน Flask-WTF หรือ hidden token
+- Session ใช้ Flask secret key (อ่านจาก env variable)
+
+---
+
+## Constraints
+
+- ไม่มี Excel import ใน v2 (บันทึกผ่านฟอร์มเท่านั้น)
+- SQLite3 file อยู่ใน `instance/accidents.db`
+- รองรับการฝัง iframe ใน Joomla (เหมือนเดิม)
+- ไม่ต้องมี filter / export ใน v1 (อาจเพิ่มในภายหลัง)

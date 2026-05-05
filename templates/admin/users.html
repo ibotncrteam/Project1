@@ -1,0 +1,128 @@
+{% extends "admin/base.html" %}
+{% block title %}จัดการผู้ใช้งาน{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center mb-4">
+  <h4 class="fw-bold mb-0"><i class="bi bi-people-fill me-2 text-primary"></i>จัดการผู้ใช้งาน (Admin)</h4>
+</div>
+
+<div class="row g-4">
+
+  <!-- Left: user list -->
+  <div class="col-lg-7">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-primary text-white fw-semibold">
+        <i class="bi bi-person-lines-fill me-2"></i>รายชื่อผู้ใช้งาน
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-hover mb-0" style="font-size:.9rem">
+          <thead style="background:#e8eaf6">
+            <tr>
+              <th class="px-3">#</th>
+              <th>ชื่อผู้ใช้</th>
+              <th>สิทธิ์</th>
+              <th class="text-center">เปลี่ยนรหัสผ่าน</th>
+              <th class="text-center">ลบ</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for u in users %}
+            <tr{% if u.id == current_user.id %} class="table-primary"{% endif %}>
+              <td class="px-3">{{ u.id }}</td>
+              <td class="fw-semibold">
+                <i class="bi bi-person-circle me-1 text-secondary"></i>{{ u.username }}
+                {% if u.id == current_user.id %}
+                  <span class="badge bg-secondary ms-1" style="font-size:.7rem">คุณ</span>
+                {% endif %}
+              </td>
+              <td><span class="badge bg-primary">{{ u.role }}</span></td>
+
+              <!-- Change password modal trigger -->
+              <td class="text-center">
+                <button class="btn btn-sm btn-outline-warning"
+                        data-bs-toggle="modal"
+                        data-bs-target="#modalPwd{{ u.id }}">
+                  <i class="bi bi-key me-1"></i>เปลี่ยนรหัส
+                </button>
+              </td>
+
+              <!-- Delete -->
+              <td class="text-center">
+                {% if u.id != current_user.id %}
+                <form method="POST" action="{{ url_for('admin_user_delete', uid=u.id) }}"
+                      onsubmit="return confirm('ลบผู้ใช้ {{ u.username }} ใช่หรือไม่?')">
+                  <button type="submit" class="btn btn-sm btn-outline-danger">
+                    <i class="bi bi-trash me-1"></i>ลบ
+                  </button>
+                </form>
+                {% else %}
+                <span class="text-muted small">—</span>
+                {% endif %}
+              </td>
+            </tr>
+
+            <!-- Change password modal -->
+            <div class="modal fade" id="modalPwd{{ u.id }}" tabindex="-1">
+              <div class="modal-dialog modal-sm">
+                <div class="modal-content">
+                  <form method="POST" action="{{ url_for('admin_user_change_password', uid=u.id) }}">
+                    <div class="modal-header">
+                      <h5 class="modal-title fw-bold">
+                        <i class="bi bi-key me-2"></i>เปลี่ยนรหัส — {{ u.username }}
+                      </h5>
+                      <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                      <label class="form-label fw-semibold">รหัสผ่านใหม่ <span class="text-danger">*</span></label>
+                      <input type="password" name="new_password" class="form-control" required
+                             minlength="6" placeholder="อย่างน้อย 6 ตัวอักษร"/>
+                    </div>
+                    <div class="modal-footer">
+                      <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">ยกเลิก</button>
+                      <button type="submit" class="btn btn-warning btn-sm fw-semibold">บันทึก</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right: add new user -->
+  <div class="col-lg-5">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-success text-white fw-semibold">
+        <i class="bi bi-person-plus-fill me-2"></i>เพิ่มผู้ใช้ใหม่
+      </div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('admin_user_new') }}">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">ชื่อผู้ใช้ <span class="text-danger">*</span></label>
+            <input type="text" name="username" class="form-control" required
+                   placeholder="username" autocomplete="off"/>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">รหัสผ่าน <span class="text-danger">*</span></label>
+            <input type="password" name="password" class="form-control" required
+                   minlength="6" placeholder="อย่างน้อย 6 ตัวอักษร"/>
+          </div>
+          <div class="mb-4">
+            <label class="form-label fw-semibold">สิทธิ์</label>
+            <select name="role" class="form-select">
+              <option value="admin">admin</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-success w-100 fw-semibold">
+            <i class="bi bi-person-plus me-1"></i>เพิ่มผู้ใช้
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

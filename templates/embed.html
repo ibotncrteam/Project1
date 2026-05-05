@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>สถิติอุบัติเหตุ</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #f5f6fa; color: #333; font-size: 13px; }
+
+    .cards { display: flex; gap: 12px; padding: 14px 14px 0; flex-wrap: wrap; }
+    .card {
+      flex: 1; min-width: 120px; border-radius: 10px;
+      padding: 14px 18px; color: white;
+    }
+    .card.injured     { background: linear-gradient(135deg, #e53935, #ef9a9a); }
+    .card.not-injured { background: linear-gradient(135deg, #43a047, #a5d6a7); }
+    .card.total       { background: linear-gradient(135deg, #5e35b1, #b39ddb); }
+    .card .label { font-size: 0.75rem; opacity: 0.9; margin-bottom: 4px; }
+    .card .value { font-size: 2rem; font-weight: 700; line-height: 1; }
+
+    .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 12px 14px; }
+    .chart-box { background: white; border-radius: 10px; padding: 14px; }
+    .chart-box h3 { font-size: 0.78rem; font-weight: 600; color: #1a237e; margin-bottom: 10px; }
+
+    .table-box { background: white; border-radius: 10px; margin: 0 14px 14px; padding: 14px; }
+    .table-box h3 { font-size: 0.78rem; font-weight: 600; color: #1a237e; margin-bottom: 10px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+    th { background: #e8eaf6; color: #1a237e; padding: 7px 10px; text-align: left; }
+    td { padding: 7px 10px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+    tr:hover td { background: #fafafa; }
+    .badge { display: inline-block; padding: 1px 8px; border-radius: 20px; font-size: 0.7rem; font-weight: 600; }
+    .badge.injured    { background: #fde8e8; color: #c62828; }
+    .badge.not-injured { background: #e8f5e9; color: #2e7d32; }
+
+    #loading { text-align: center; padding: 40px; color: #888; }
+    #error   { text-align: center; padding: 40px; color: #c62828; display: none; }
+  </style>
+</head>
+<body>
+  <div id="loading">กำลังโหลดข้อมูล...</div>
+  <div id="error">ไม่สามารถโหลดข้อมูลได้</div>
+  <div id="content" style="display:none">
+    <div class="cards">
+      <div class="card injured">
+        <div class="label">มีผู้ได้รับบาดเจ็บ</div>
+        <div class="value" id="c-injured">0</div>
+      </div>
+      <div class="card not-injured">
+        <div class="label">ไม่มีผู้ได้รับบาดเจ็บ</div>
+        <div class="value" id="c-not-injured">0</div>
+      </div>
+      <div class="card total">
+        <div class="label">รวมทั้งหมด</div>
+        <div class="value" id="c-total">0</div>
+      </div>
+    </div>
+
+    <div class="charts-grid">
+      <div class="chart-box">
+        <h3>จำนวนแยกตามเดือน</h3>
+        <canvas id="chartMonthly" height="180"></canvas>
+      </div>
+      <div class="chart-box">
+        <h3>จำนวนแยกตามแผนก</h3>
+        <canvas id="chartDept" height="180"></canvas>
+      </div>
+      <div class="chart-box">
+        <h3>ประเภท — มีผู้บาดเจ็บ</h3>
+        <canvas id="chartTypeInjured" height="180"></canvas>
+      </div>
+      <div class="chart-box">
+        <h3>ประเภท — ไม่มีผู้บาดเจ็บ</h3>
+        <canvas id="chartTypeNotInjured" height="180"></canvas>
+      </div>
+    </div>
+
+    <div class="table-box">
+      <h3>รายการอุบัติเหตุทั้งหมด</h3>
+      <table>
+        <thead>
+          <tr><th>#</th><th>วันที่</th><th>แผนก</th><th>ประเภท</th><th>สถานะ</th><th>รายละเอียด</th></tr>
+        </thead>
+        <tbody id="incident-table"></tbody>
+      </table>
+    </div>
+  </div>
+
+<script>
+const COLORS = ['#e53935','#fb8c00','#fdd835','#43a047','#00acc1','#5e35b1','#d81b60','#6d4c41'];
+
+function makeDonut(id, labels, values) {
+  const ctx = document.getElementById(id).getContext('2d');
+  if (!labels.length) {
+    ctx.canvas.insertAdjacentHTML('afterend', '<p style="color:#aaa;text-align:center;font-size:0.75rem;margin-top:8px">ไม่มีข้อมูล</p>');
+    return;
+  }
+  new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data: values, backgroundColor: COLORS, borderWidth: 2 }] },
+    options: { plugins: { legend: { position: 'right', labels: { font: { size: 10 }, boxWidth: 12 } } }, cutout: '60%' }
+  });
+}
+
+fetch('/api/data')
+  .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+  .then(d => {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('content').style.display = 'block';
+
+    document.getElementById('c-injured').textContent = d.summary.injured;
+    document.getElementById('c-not-injured').textContent = d.summary.not_injured;
+    document.getElementById('c-total').textContent = d.summary.total;
+
+    new Chart(document.getElementById('chartMonthly').getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: d.monthly.labels,
+        datasets: [
+          { label: 'มีผู้บาดเจ็บ', data: d.monthly.injured, backgroundColor: '#e53935' },
+          { label: 'ไม่มีผู้บาดเจ็บ', data: d.monthly.not_injured, backgroundColor: '#43a047' }
+        ]
+      },
+      options: { plugins: { legend: { labels: { font: { size: 10 } } } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+    });
+
+    new Chart(document.getElementById('chartDept').getContext('2d'), {
+      type: 'bar',
+      data: { labels: d.department.labels, datasets: [{ label: 'อุบัติเหตุ', data: d.department.values, backgroundColor: '#3949ab' }] },
+      options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+    });
+
+    makeDonut('chartTypeInjured', d.type_injured.labels, d.type_injured.values);
+    makeDonut('chartTypeNotInjured', d.type_not_injured.labels, d.type_not_injured.values);
+
+    const tbody = document.getElementById('incident-table');
+    d.incidents.forEach((r, i) => {
+      const badge = r.injured
+        ? '<span class="badge injured">มีผู้บาดเจ็บ</span>'
+        : '<span class="badge not-injured">ไม่มีผู้บาดเจ็บ</span>';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${i+1}</td><td>${r.date}</td><td>${r.dept}</td><td>${r.type}</td><td>${badge}</td><td>${r.description}</td>`;
+      tbody.appendChild(tr);
+    });
+  })
+  .catch(() => {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('error').style.display = 'block';
+  });
+</script>
+</body>
+</html>

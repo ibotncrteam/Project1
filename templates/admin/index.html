@@ -1,0 +1,114 @@
+{% extends "admin/base.html" %}
+{% block title %}รายการอุบัติเหตุ{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <h4 class="fw-bold mb-0"><i class="bi bi-list-ul me-2 text-primary"></i>รายการอุบัติเหตุทั้งหมด</h4>
+  <a href="{{ url_for('admin_new') }}" class="btn btn-primary">
+    <i class="bi bi-plus-circle me-1"></i> เพิ่มรายการใหม่
+  </a>
+</div>
+
+<!-- Summary mini-cards -->
+<div class="row g-3 mb-4">
+  {% set totals = incidents | length %}
+  {% set majors = incidents | selectattr('classification','equalto','Major') | list | length %}
+  {% set minors = incidents | selectattr('classification','equalto','Minor') | list | length %}
+  {% set nons   = incidents | selectattr('classification','equalto','Non-accident') | list | length %}
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center py-3">
+      <div class="fw-bold fs-4">{{ totals }}</div>
+      <div class="text-muted small">รวมทั้งหมด</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center py-3" style="background:#fff5f5">
+      <div class="fw-bold fs-4 text-danger">{{ majors }}</div>
+      <div class="text-muted small">Major</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center py-3" style="background:#fffde7">
+      <div class="fw-bold fs-4" style="color:#f57f17">{{ minors }}</div>
+      <div class="text-muted small">Minor</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center py-3" style="background:#e8f5e9">
+      <div class="fw-bold fs-4 text-success">{{ nons }}</div>
+      <div class="text-muted small">Non-accident</div>
+    </div>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0" style="font-size:.88rem">
+        <thead style="background:#e8eaf6;">
+          <tr>
+            <th class="ps-3">#</th>
+            <th>วันที่</th>
+            <th>ชื่อ - สกุล</th>
+            <th>แผนก</th>
+            <th>ฝ่าย</th>
+            <th>ประเภทอุบัติเหตุ</th>
+            <th class="text-center" title="เครื่องจักร/อุปกรณ์">1</th>
+            <th class="text-center" title="การประเมิน">2</th>
+            <th class="text-center" title="ความบาดเจ็บ">3</th>
+            <th class="text-center" title="ส่วนของร่างกาย">4</th>
+            <th class="text-center" title="การเกิดซ้ำ">5</th>
+            <th class="text-center">รวม</th>
+            <th>ประเภท</th>
+            <th>Major?</th>
+            <th>จัดการ</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for inc in incidents %}
+          <tr class="{% if inc.classification == 'Major' %}table-row-major{% elif inc.classification == 'Minor' %}table-row-minor{% endif %}">
+            <td class="ps-3">{{ inc.id }}</td>
+            <td>{{ inc.date }}</td>
+            <td>{{ inc.person_name }}</td>
+            <td>{{ inc.department }}</td>
+            <td>{{ inc.division or '' }}</td>
+            <td>{{ inc.accident_type }}</td>
+            <td class="text-center">{{ inc.score1 }}</td>
+            <td class="text-center">{{ inc.score2 }}</td>
+            <td class="text-center">{{ inc.score3 }}</td>
+            <td class="text-center">{{ inc.score4 }}</td>
+            <td class="text-center">{{ inc.score5 }}</td>
+            <td class="text-center fw-bold">{{ inc.score_total }}</td>
+            <td>
+              {% if inc.classification == 'Major' %}
+                <span class="badge badge-major rounded-pill px-2">Major</span>
+              {% elif inc.classification == 'Minor' %}
+                <span class="badge badge-minor rounded-pill px-2">Minor</span>
+              {% else %}
+                <span class="badge badge-non rounded-pill px-2">Non-accident</span>
+              {% endif %}
+            </td>
+            <td class="text-center">
+              {% if inc.is_major %}<i class="bi bi-check-square-fill text-danger"></i>{% else %}<i class="bi bi-square text-muted"></i>{% endif %}
+            </td>
+            <td>
+              <a href="{{ url_for('admin_edit', inc_id=inc.id) }}" class="btn btn-sm btn-outline-primary py-0 me-1">
+                <i class="bi bi-pencil"></i>
+              </a>
+              <form action="{{ url_for('admin_delete', inc_id=inc.id) }}" method="POST" class="d-inline"
+                    onsubmit="return confirm('ยืนยันการลบรายการนี้?')">
+                <button type="submit" class="btn btn-sm btn-outline-danger py-0">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </form>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="15" class="text-center py-4 text-muted">ยังไม่มีข้อมูล — <a href="{{ url_for('admin_new') }}">เพิ่มรายการแรก</a></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

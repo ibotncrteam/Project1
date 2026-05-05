@@ -1,0 +1,139 @@
+<!-- 
+  วิธีใช้:
+  1. รัน: py export_json.py  → ได้ไฟล์ accident_data.json
+  2. อัปโหลด accident_data.json ไปไว้ใน Joomla web root
+     เช่น https://yourdomain.com/accident_data.json
+  3. แปะ HTML นี้ใน Joomla > Extensions > Modules > Custom (Source mode)
+  4. แก้ JSON_URL ด้านล่างให้ตรงกับ path ที่วางไฟล์
+-->
+<script>const JSON_URL = "/accident_data.json";</script>
+
+<style>
+#acc-wrap * { box-sizing: border-box; margin: 0; padding: 0; }
+#acc-wrap { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 13px; color: #333; background: #f5f6fa; padding: 16px; border-radius: 8px; }
+#acc-wrap .cards { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+#acc-wrap .card { flex: 1; min-width: 120px; border-radius: 10px; padding: 14px 18px; color: white; }
+#acc-wrap .card.injured     { background: linear-gradient(135deg,#e53935,#ef9a9a); }
+#acc-wrap .card.not-injured { background: linear-gradient(135deg,#43a047,#a5d6a7); }
+#acc-wrap .card.total       { background: linear-gradient(135deg,#5e35b1,#b39ddb); }
+#acc-wrap .card .lbl { font-size: 0.75rem; opacity: .9; margin-bottom: 4px; }
+#acc-wrap .card .val { font-size: 2rem; font-weight: 700; line-height: 1; }
+#acc-wrap .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+#acc-wrap .chart-box { background: white; border-radius: 10px; padding: 14px; }
+#acc-wrap .chart-box h3 { font-size: 0.78rem; font-weight: 600; color: #1a237e; margin-bottom: 10px; }
+#acc-wrap .table-box { background: white; border-radius: 10px; padding: 14px; }
+#acc-wrap .table-box h3 { font-size: 0.78rem; font-weight: 600; color: #1a237e; margin-bottom: 10px; }
+#acc-wrap table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+#acc-wrap th { background: #e8eaf6; color: #1a237e; padding: 7px 10px; text-align: left; }
+#acc-wrap td { padding: 7px 10px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+#acc-wrap .badge { display: inline-block; padding: 1px 8px; border-radius: 20px; font-size: 0.7rem; font-weight: 600; }
+#acc-wrap .badge.inj  { background: #fde8e8; color: #c62828; }
+#acc-wrap .badge.ninj { background: #e8f5e9; color: #2e7d32; }
+#acc-wrap .msg { text-align: center; padding: 30px; color: #888; }
+@media (max-width: 600px) {
+  #acc-wrap .charts-grid { grid-template-columns: 1fr; }
+}
+</style>
+
+<div id="acc-wrap">
+  <div class="msg" id="acc-loading">กำลังโหลดข้อมูล...</div>
+  <div class="msg" id="acc-error" style="display:none;color:#c62828">ไม่สามารถเชื่อมต่อ Flask server ได้</div>
+  <div id="acc-content" style="display:none">
+    <div class="cards">
+      <div class="card injured">
+        <div class="lbl">มีผู้ได้รับบาดเจ็บ</div>
+        <div class="val" id="acc-c1">0</div>
+      </div>
+      <div class="card not-injured">
+        <div class="lbl">ไม่มีผู้ได้รับบาดเจ็บ</div>
+        <div class="val" id="acc-c2">0</div>
+      </div>
+      <div class="card total">
+        <div class="lbl">รวมทั้งหมด</div>
+        <div class="val" id="acc-c3">0</div>
+      </div>
+    </div>
+    <div class="charts-grid">
+      <div class="chart-box"><h3>จำนวนแยกตามเดือน</h3><canvas id="acc-monthly" height="180"></canvas></div>
+      <div class="chart-box"><h3>จำนวนแยกตามแผนก</h3><canvas id="acc-dept" height="180"></canvas></div>
+      <div class="chart-box"><h3>ประเภท — มีผู้บาดเจ็บ</h3><canvas id="acc-ti" height="180"></canvas></div>
+      <div class="chart-box"><h3>ประเภท — ไม่มีผู้บาดเจ็บ</h3><canvas id="acc-tn" height="180"></canvas></div>
+    </div>
+    <div class="table-box">
+      <h3>รายการอุบัติเหตุทั้งหมด</h3>
+      <table>
+        <thead><tr><th>#</th><th>วันที่</th><th>แผนก</th><th>ประเภท</th><th>สถานะ</th><th>รายละเอียด</th></tr></thead>
+        <tbody id="acc-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const COLORS = ['#e53935','#fb8c00','#fdd835','#43a047','#00acc1','#5e35b1','#d81b60','#6d4c41'];
+
+  function loadChartJs(cb) {
+    if (window.Chart) return cb();
+    var s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+    s.onload = cb;
+    document.head.appendChild(s);
+  }
+
+  function makeDonut(id, labels, values) {
+    var ctx = document.getElementById(id).getContext('2d');
+    if (!labels.length) { ctx.canvas.insertAdjacentHTML('afterend','<p style="color:#aaa;text-align:center;font-size:0.75rem;margin-top:8px">ไม่มีข้อมูล</p>'); return; }
+    new Chart(ctx, {
+      type: 'doughnut',
+      data: { labels: labels, datasets: [{ data: values, backgroundColor: COLORS, borderWidth: 2 }] },
+      options: { plugins: { legend: { position: 'right', labels: { font: { size: 10 }, boxWidth: 12 } } }, cutout: '60%' }
+    });
+  }
+
+  loadChartJs(function() {
+    fetch(JSON_URL)
+      .then(function(r) { if (!r.ok) throw new Error(); return r.json(); })
+      .then(function(d) {
+        document.getElementById('acc-loading').style.display = 'none';
+        document.getElementById('acc-content').style.display = 'block';
+
+        document.getElementById('acc-c1').textContent = d.summary.injured;
+        document.getElementById('acc-c2').textContent = d.summary.not_injured;
+        document.getElementById('acc-c3').textContent = d.summary.total;
+
+        new Chart(document.getElementById('acc-monthly').getContext('2d'), {
+          type: 'bar',
+          data: { labels: d.monthly.labels, datasets: [
+            { label: 'มีผู้บาดเจ็บ', data: d.monthly.injured, backgroundColor: '#e53935' },
+            { label: 'ไม่มีผู้บาดเจ็บ', data: d.monthly.not_injured, backgroundColor: '#43a047' }
+          ]},
+          options: { plugins: { legend: { labels: { font: { size: 10 } } } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+        });
+
+        new Chart(document.getElementById('acc-dept').getContext('2d'), {
+          type: 'bar',
+          data: { labels: d.department.labels, datasets: [{ label: 'อุบัติเหตุ', data: d.department.values, backgroundColor: '#3949ab' }] },
+          options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+        });
+
+        makeDonut('acc-ti', d.type_injured.labels, d.type_injured.values);
+        makeDonut('acc-tn', d.type_not_injured.labels, d.type_not_injured.values);
+
+        var tbody = document.getElementById('acc-tbody');
+        d.incidents.forEach(function(r, i) {
+          var badge = r.injured
+            ? '<span class="badge inj">มีผู้บาดเจ็บ</span>'
+            : '<span class="badge ninj">ไม่มีผู้บาดเจ็บ</span>';
+          var tr = document.createElement('tr');
+          tr.innerHTML = '<td>'+(i+1)+'</td><td>'+r.date+'</td><td>'+r.dept+'</td><td>'+r.type+'</td><td>'+badge+'</td><td>'+r.description+'</td>';
+          tbody.appendChild(tr);
+        });
+      })
+      .catch(function() {
+        document.getElementById('acc-loading').style.display = 'none';
+        document.getElementById('acc-error').style.display = 'block';
+      });
+  });
+})();
+</script>
