@@ -37,23 +37,47 @@
 </div>
 
 <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+  <!-- Search bar -->
+  <div class="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center gap-3">
+    <div class="relative">
+      <i class="bi bi-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none"></i>
+      <input id="searchInput" type="text" placeholder="ค้นหา ชื่อ, แผนก, ฝ่าย, ประเภทอุบัติเหตุ..."
+             class="pl-8 pr-3 py-1.5 text-sm border border-gray-300 rounded-lg w-72 focus:outline-none focus:ring-2 focus:ring-blue-400"/>
+    </div>
+    <button onclick="clearSearch()" id="clearBtn" style="display:none"
+            class="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-red-600 transition">
+      <i class="bi bi-x-circle"></i> ล้างการค้นหา
+    </button>
+  </div>
   <div class="overflow-x-auto">
     <table class="w-full text-sm">
       <thead>
         <tr style="background:#e8eaf6">
           <th class="px-3 py-2 text-left hidden md:table-cell">#</th>
-          <th class="py-2 text-left">วันที่</th>
-          <th class="py-2 text-left">ชื่อ - สกุล</th>
-          <th class="py-2 text-left hidden md:table-cell">แผนก</th>
-          <th class="py-2 text-left hidden lg:table-cell">ฝ่าย</th>
+          <th class="py-2 text-left cursor-pointer select-none hover:bg-[#d8daf0] transition" data-sort-col="1">
+            วันที่ <i class="sort-icon bi bi-chevron-expand text-gray-400 text-xs"></i>
+          </th>
+          <th class="py-2 text-left cursor-pointer select-none hover:bg-[#d8daf0] transition" data-sort-col="2">
+            ชื่อ - สกุล <i class="sort-icon bi bi-chevron-expand text-gray-400 text-xs"></i>
+          </th>
+          <th class="py-2 text-left hidden md:table-cell cursor-pointer select-none hover:bg-[#d8daf0] transition" data-sort-col="3">
+            แผนก <i class="sort-icon bi bi-chevron-expand text-gray-400 text-xs"></i>
+          </th>
+          <th class="py-2 text-left hidden lg:table-cell cursor-pointer select-none hover:bg-[#d8daf0] transition" data-sort-col="4">
+            ฝ่าย <i class="sort-icon bi bi-chevron-expand text-gray-400 text-xs"></i>
+          </th>
           <th class="py-2 text-left hidden sm:table-cell">ประเภทอุบัติเหตุ</th>
           <th class="py-2 text-center hidden lg:table-cell" title="เครื่องจักร/อุปกรณ์">1</th>
           <th class="py-2 text-center hidden lg:table-cell" title="การประเมิน">2</th>
           <th class="py-2 text-center hidden lg:table-cell" title="ความบาดเจ็บ">3</th>
           <th class="py-2 text-center hidden lg:table-cell" title="ส่วนของร่างกาย">4</th>
           <th class="py-2 text-center hidden lg:table-cell" title="การเกิดซ้ำ">5</th>
-          <th class="py-2 text-center hidden md:table-cell">รวม</th>
-          <th class="py-2 text-left">ประเภท</th>
+          <th class="py-2 text-center hidden md:table-cell cursor-pointer select-none hover:bg-[#d8daf0] transition" data-sort-col="11">
+            รวม <i class="sort-icon bi bi-chevron-expand text-gray-400 text-xs"></i>
+          </th>
+          <th class="py-2 text-left cursor-pointer select-none hover:bg-[#d8daf0] transition" data-sort-col="12">
+            ประเภท <i class="sort-icon bi bi-chevron-expand text-gray-400 text-xs"></i>
+          </th>
           <th class="py-2 text-center hidden md:table-cell">Major?</th>
           <th class="py-2 text-left">จัดการ</th>
         </tr>
@@ -139,34 +163,100 @@
 {% block scripts %}
 <script>
 (function () {
-  const rows = Array.from(document.querySelectorAll('#tableBody tr[data-row]'));
-  const total = rows.length;
-  if (total === 0) return;
+  const tableBody   = document.getElementById('tableBody');
+  const allRows     = Array.from(tableBody.querySelectorAll('tr[data-row]'));
+  if (allRows.length === 0) return;
 
-  let pageSize = 25;
-  let currentPage = 1;
+  let filteredRows  = [...allRows];
+  let pageSize      = 25;
+  let currentPage   = 1;
+  let sortCol       = -1;
+  let sortAsc       = true;
 
   const pageSizeSelect = document.getElementById('pageSizeSelect');
-  const showingInfo   = document.getElementById('showingInfo');
-  const pageInfo      = document.getElementById('pageInfo');
-  const pageButtons   = document.getElementById('pageButtons');
+  const showingInfo    = document.getElementById('showingInfo');
+  const pageInfo       = document.getElementById('pageInfo');
+  const pageButtons    = document.getElementById('pageButtons');
+  const searchInput    = document.getElementById('searchInput');
+  const clearBtn       = document.getElementById('clearBtn');
 
-  function totalPages() { return Math.ceil(total / pageSize); }
+  function getCellText(row, colIdx) {
+    return row.cells[colIdx] ? row.cells[colIdx].textContent.trim() : '';
+  }
+
+  function applyFilter() {
+    const q = searchInput.value.trim().toLowerCase();
+    clearBtn.style.display = q ? 'inline-flex' : 'none';
+    filteredRows = q
+      ? allRows.filter(r => r.textContent.toLowerCase().includes(q))
+      : [...allRows];
+    applySort();
+  }
+
+  function applySort() {
+    if (sortCol >= 0) {
+      const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+      filteredRows.sort((a, b) => {
+        const av = getCellText(a, sortCol);
+        const bv = getCellText(b, sortCol);
+        let cmp;
+        if (dateRe.test(av) && dateRe.test(bv)) {
+          cmp = av < bv ? -1 : av > bv ? 1 : 0;
+        } else {
+          const an = parseFloat(av), bn = parseFloat(bv);
+          cmp = !isNaN(an) && !isNaN(bn) ? an - bn : av.localeCompare(bv, 'th');
+        }
+        return sortAsc ? cmp : -cmp;
+      });
+    }
+    // Reorder DOM: filtered rows first, then non-filtered (hidden at bottom)
+    filteredRows.forEach(r => tableBody.appendChild(r));
+    allRows.filter(r => !filteredRows.includes(r)).forEach(r => tableBody.appendChild(r));
+    currentPage = 1;
+    render();
+  }
+
+  window.clearSearch = function () {
+    searchInput.value = '';
+    applyFilter();
+  };
+
+  // Sortable column headers
+  document.querySelectorAll('th[data-sort-col]').forEach(th => {
+    th.addEventListener('click', () => {
+      const col = parseInt(th.dataset.sortCol);
+      if (sortCol === col) sortAsc = !sortAsc;
+      else { sortCol = col; sortAsc = true; }
+      document.querySelectorAll('th[data-sort-col] .sort-icon').forEach(ic => {
+        ic.className = 'sort-icon bi bi-chevron-expand text-gray-400 text-xs';
+      });
+      const icon = th.querySelector('.sort-icon');
+      if (icon) icon.className = `sort-icon bi bi-chevron-${sortAsc ? 'up' : 'down'} text-blue-600 text-xs`;
+      applySort();
+    });
+  });
+
+  searchInput.addEventListener('input', applyFilter);
+
+  function totalPages() { return Math.ceil(filteredRows.length / pageSize); }
 
   function render() {
-    const tp = totalPages();
-    currentPage = Math.min(currentPage, tp);
+    const total = filteredRows.length;
+    const tp    = totalPages();
+    currentPage = Math.min(currentPage, Math.max(1, tp));
 
     const start = (currentPage - 1) * pageSize;
     const end   = Math.min(start + pageSize, total);
 
-    rows.forEach((r, i) => {
+    // Hide all, show only current page of filtered
+    allRows.forEach(r => { r.style.display = 'none'; });
+    filteredRows.forEach((r, i) => {
       r.style.display = (i >= start && i < end) ? '' : 'none';
     });
 
     // showing info
-    showingInfo.textContent = pageSize >= 9999
-      ? total
+    showingInfo.textContent = total === 0 ? '0'
+      : pageSize >= 9999 ? total
       : `${start + 1}–${end} / ${total}`;
 
     // page info text
